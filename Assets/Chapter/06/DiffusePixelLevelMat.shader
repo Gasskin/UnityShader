@@ -2,53 +2,56 @@ Shader "Custom/DiffusePixelLevelMat"
 {
     Properties
     {
-        _Diffuse("Diffuse",Color) = (1,1,1,1)
+        //漫反射颜色
+        _DiffuseColor("Color",Color)=(1,1,1,1)
     }
     SubShader
     {
         Pass
         {
-            Tags{"LightMode"="ForwardBase"}
-            
-            CGPROGRAM
-
+            //正向渲染
+            Tags{ "LightMode"="ForwardBase" }
+            CGPROGRAM//------------------CG语言开始-------------------
             #pragma vertex vert
             #pragma fragment frag
             
             #include "Lighting.cginc"
 
-            fixed4 _Diffuse;
-            
-            struct a2v
+            float4 _DiffuseColor;
+            struct appdata
             {
                 float4 vertex : POSITION;
+                //顶点法线
                 float3 normal : NORMAL;
             };
 
             struct v2f
             {
-                float4 pos : SV_POSITION;
-                fixed3 worldNormal : TEXTURE0;
+                float4 vertex : SV_POSITION;
+                //世界空间下的顶点法线
+                fixed3 worldNormal : TEXCOORD0;
             };
 
-            v2f vert(a2v v)
+            v2f vert (appdata v)
             {
                 v2f o;
-                o.pos = UnityObjectToClipPos(v.vertex);
-                o.worldNormal = UnityObjectToWorldNormal(v.normal);
+                o.vertex = UnityObjectToClipPos(v.vertex);
+                //通过矩阵运算，得到世界空间下的顶点法线
+                o.worldNormal = mul(v.normal,(float3x3)unity_WorldToObject);
                 return o;
             }
-
-            fixed4 frag(v2f i):SV_Target
-            {
-                fixed3 worldNormal = normalize(i.worldNormal);
-                fixed3 worldLight = normalize(_WorldSpaceLightPos0);
-
-                fixed3 diffuse = _LightColor0 * _Diffuse * saturate(dot(worldNormal,worldLight));
-
-                return fixed4(diffuse,1.0);
-            }
             
+            fixed4 frag (v2f i) : SV_Target
+            {
+                float3 ambient = UNITY_LIGHTMODEL_AMBIENT.xyz;
+                fixed3 worldNormal = normalize(i.worldNormal);
+                fixed3  worldLightDir = normalize(_WorldSpaceLightPos0.xyz);
+                //使用兰伯特光照模型公式
+                fixed3 diffuse = _LightColor0.rgb * _DiffuseColor.rgb *
+                    saturate(dot(worldNormal,worldLightDir));
+                fixed3 color = diffuse + ambient;
+                return fixed4(color,1.0);
+            }
             ENDCG
         }
     }
